@@ -14,7 +14,7 @@ Otherwise, logs are formatted as JSON compatible with [Amazon ECS](https://docs.
 
 ```zig
 const std = @import("std");
-const ael = @import("root.zig");
+const ael = @import("ecs-log-formatter");
 
 pub const std_options: std.Options = std.Options{
     .logFn = ael.AutoLogger("example-service").log,

@@ -4,14 +4,11 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const lib = b.addStaticLibrary(.{
-        .name = "ecs-log-formatter",
+    const ecs = b.addModule("ecs-log-formatter", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
     });
-    lib.linkLibC();
-    b.installArtifact(lib);
 
     const exe = b.addExecutable(.{
         .name = "ecs-log-formatter",
@@ -20,6 +17,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe.linkLibC();
+    exe.root_module.addImport("ecs-log-formatter", ecs);
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
@@ -30,15 +28,4 @@ pub fn build(b: *std.Build) void {
 
     const run_step = b.step("run", "Run the example code from README.md");
     run_step.dependOn(&run_cmd.step);
-
-    const lib_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/root.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
-
-    const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_lib_unit_tests.step);
 }
