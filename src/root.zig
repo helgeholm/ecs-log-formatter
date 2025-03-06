@@ -36,7 +36,7 @@ pub fn AutoLogger(comptime service_name: []const u8) type {
     return struct {
         pub fn log(
             comptime message_level: std.log.Level,
-            comptime scope: @Type(.EnumLiteral),
+            comptime scope: @Type(.enum_literal),
             comptime format: []const u8,
             args: anytype,
         ) void {
@@ -66,7 +66,7 @@ fn timestamp(comptime datetime_fmt: [:0]const u8, comptime micros_fmt: []const u
 fn color_log(
     comptime _: []const u8,
     comptime message_level: std.log.Level,
-    comptime scope: @Type(.EnumLiteral),
+    comptime scope: @Type(.enum_literal),
     comptime format: []const u8,
     args: anytype,
 ) !void {
@@ -100,7 +100,7 @@ fn color_log(
 fn bw_log(
     comptime _: []const u8,
     comptime message_level: std.log.Level,
-    comptime scope: @Type(.EnumLiteral),
+    comptime scope: @Type(.enum_literal),
     comptime format: []const u8,
     args: anytype,
 ) !void {
@@ -118,7 +118,7 @@ fn bw_log(
 fn json_log(
     comptime service_name: []const u8,
     comptime message_level: std.log.Level,
-    comptime scope: @Type(.EnumLiteral),
+    comptime scope: @Type(.enum_literal),
     comptime format: []const u8,
     args: anytype,
 ) !void {
