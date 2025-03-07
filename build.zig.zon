@@ -1,7 +1,7 @@
 .{
     .name = .ecs_log_formatter,
     .fingerprint = 0x9bb5c3a125a30475,
-    .version = "2.0.0",
+    .version = "3.0.1",
     .minimum_zig_version = "0.14.0",
     .paths = .{
         "build.zig",
