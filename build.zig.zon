@@ -3,6 +3,12 @@
     .fingerprint = 0x9bb5c3a125a30475,
     .version = "3.0.1",
     .minimum_zig_version = "0.14.0",
+    .dependencies = .{
+        .zig_zeit = .{
+            .url = "https://github.com/rockorager/zeit/archive/refs/tags/v0.6.0.tar.gz",
+            .hash = "zeit-0.0.0-5I6bk_pZAgB03N1p1GmVOZ--gOFwwQSRKj1UXb5tnaKS",
+        },
+    },
     .paths = .{
         "build.zig",
         "build.zig.zon",

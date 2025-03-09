@@ -10,10 +10,6 @@ Otherwise, logs are formatted as JSON compatible with [Amazon ECS](https://docs.
 {"@timestamp":"2025-01-10T21:01:22.621014Z","log.level":"info","log.logger":"server","service":{"name":"log-demonstration-service"},"message":"Server listening on port 8080"}
 ```
 
-## Notes
-
-Relies on `libc` for date formatting, so executables using this must link it in. Usually means adding `exe.linkLibC();` to `build.zig`.
-
 ## Example use
 
 ```zig

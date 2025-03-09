@@ -10,13 +10,18 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const zeit = b.dependency("zig_zeit", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    ecs.addImport("zeit", zeit.module("zeit"));
+
     const exe = b.addExecutable(.{
         .name = "ecs-log-formatter",
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
-    exe.linkLibC();
     exe.root_module.addImport("ecs-log-formatter", ecs);
     b.installArtifact(exe);
 

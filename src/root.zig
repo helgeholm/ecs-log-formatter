@@ -1,8 +1,5 @@
 const std = @import("std");
-const c = @cImport({
-    @cInclude("time.h");
-    @cInclude("sys/time.h");
-});
+const zeit = @import("zeit");
 
 const stderr = std.io.getStdErr();
 var bw = std.io.bufferedWriter(stderr.writer());
@@ -55,12 +52,11 @@ pub fn AutoLogger(comptime service_name: []const u8) type {
     };
 }
 
-fn timestamp(comptime datetime_fmt: [:0]const u8, comptime micros_fmt: []const u8, buf: *[80]u8) ![]const u8 {
-    var tv: c.timeval = undefined;
-    _ = c.gettimeofday(&tv, null);
-    const len = c.strftime(buf, buf.len, datetime_fmt, c.gmtime(&tv.tv_sec));
-    const usec: u32 = @intCast(tv.tv_usec);
-    return buf[0 .. len + (try std.fmt.bufPrint(buf[len..], micros_fmt, .{usec})).len];
+fn write_timestamp(comptime datetime_fmt: [:0]const u8, comptime micros_fmt: []const u8) !void {
+    const now = try zeit.instant(.{});
+    try now.time().strftime(writer, datetime_fmt);
+    const usec: u32 = @intCast(@divFloor(@mod(now.timestamp, 1_000_000_000), 1_000));
+    try std.fmt.format(writer, micros_fmt, .{usec});
 }
 
 fn color_log(
@@ -83,12 +79,10 @@ fn color_log(
         .warn => "33mWARNING",
         .err => "1;31mERROR",
     };
-    var ts_buf: [80]u8 = undefined;
-    try writer.writeAll(try timestamp(
+    try write_timestamp(
         LOUD_BLUE ++ "%Y-%m-%d" ++ DIM_WHITE ++ "T" ++ BLUE ++ "%H:%M:%S",
         DIM_WHITE ++ "." ++ DIM_BLUE ++ "{d:0>6}" ++ DIM_WHITE ++ "Z ",
-        &ts_buf,
-    ));
+    );
     if (scope != .default)
         try std.fmt.format(writer, "{s}" ++ DIM_WHITE ++ "(" ++ WHITE ++ "{s}" ++ DIM_WHITE ++ "): ", .{ message_level_text, @tagName(scope) })
     else
@@ -104,8 +98,7 @@ fn bw_log(
     comptime format: []const u8,
     args: anytype,
 ) !void {
-    var ts_buf: [80]u8 = undefined;
-    try writer.writeAll(try timestamp(plain_datetime_fmt, plain_micros_fmt ++ " ", &ts_buf));
+    try write_timestamp(plain_datetime_fmt, plain_micros_fmt ++ " ");
     if (scope != .default)
         try std.fmt.format(writer, "{s}({s}): ", .{ comptime message_level.asText(), @tagName(scope) })
     else
@@ -122,9 +115,8 @@ fn json_log(
     comptime format: []const u8,
     args: anytype,
 ) !void {
-    var ts_buf: [80]u8 = undefined;
     try writer.writeAll("{\"@timestamp\":\"");
-    try writer.writeAll(try timestamp(plain_datetime_fmt, plain_micros_fmt, &ts_buf));
+    try write_timestamp(plain_datetime_fmt, plain_micros_fmt);
     try std.fmt.format(
         writer,
         "\",\"log.level\":\"{s}\",\"log.logger\":\"{s}\",\"service.name\":\"{s}\",\"message\":\"",
