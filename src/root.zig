@@ -79,16 +79,20 @@ fn color_log(
         .warn => "33mWARNING",
         .err => "1;31mERROR",
     };
-    try write_timestamp(
-        LOUD_BLUE ++ "%Y-%m-%d" ++ DIM_WHITE ++ "T" ++ BLUE ++ "%H:%M:%S",
-        DIM_WHITE ++ "." ++ DIM_BLUE ++ "{d:0>6}" ++ DIM_WHITE ++ "Z ",
-    );
-    if (scope != .default)
-        try std.fmt.format(writer, "{s}" ++ DIM_WHITE ++ "(" ++ WHITE ++ "{s}" ++ DIM_WHITE ++ "): ", .{ message_level_text, @tagName(scope) })
-    else
-        try std.fmt.format(writer, "{s}" ++ DIM_WHITE ++ ": ", .{message_level_text});
-    try std.fmt.format(writer, RESET ++ format ++ "\n", args);
-    try bw.flush();
+    std.debug.lockStdErr();
+    defer std.debug.unlockStdErr();
+    nosuspend {
+        try write_timestamp(
+            LOUD_BLUE ++ "%Y-%m-%d" ++ DIM_WHITE ++ "T" ++ BLUE ++ "%H:%M:%S",
+            DIM_WHITE ++ "." ++ DIM_BLUE ++ "{d:0>6}" ++ DIM_WHITE ++ "Z ",
+        );
+        if (scope != .default)
+            try std.fmt.format(writer, "{s}" ++ DIM_WHITE ++ "(" ++ WHITE ++ "{s}" ++ DIM_WHITE ++ "): ", .{ message_level_text, @tagName(scope) })
+        else
+            try std.fmt.format(writer, "{s}" ++ DIM_WHITE ++ ": ", .{message_level_text});
+        try std.fmt.format(writer, RESET ++ format ++ "\n", args);
+        try bw.flush();
+    }
 }
 
 fn bw_log(
@@ -98,14 +102,18 @@ fn bw_log(
     comptime format: []const u8,
     args: anytype,
 ) !void {
-    try write_timestamp(plain_datetime_fmt, plain_micros_fmt ++ " ");
-    if (scope != .default)
-        try std.fmt.format(writer, "{s}({s}): ", .{ comptime message_level.asText(), @tagName(scope) })
-    else
-        try std.fmt.format(writer, "{s}: ", .{comptime message_level.asText()});
-    try std.fmt.format(writer, format, args);
-    try writer.writeAll("\n");
-    try bw.flush();
+    std.debug.lockStdErr();
+    defer std.debug.unlockStdErr();
+    nosuspend {
+        try write_timestamp(plain_datetime_fmt, plain_micros_fmt ++ " ");
+        if (scope != .default)
+            try std.fmt.format(writer, "{s}({s}): ", .{ comptime message_level.asText(), @tagName(scope) })
+        else
+            try std.fmt.format(writer, "{s}: ", .{comptime message_level.asText()});
+        try std.fmt.format(writer, format, args);
+        try writer.writeAll("\n");
+        try bw.flush();
+    }
 }
 
 fn json_log(
@@ -117,14 +125,16 @@ fn json_log(
 ) !void {
     std.debug.lockStdErr();
     defer std.debug.unlockStdErr();
-    try writer.writeAll("{\"@timestamp\":\"");
-    try write_timestamp(plain_datetime_fmt, plain_micros_fmt);
-    try std.fmt.format(
-        writer,
-        "\",\"log.level\":\"{s}\",\"log.logger\":\"{s}\",\"service.name\":\"{s}\",\"message\":\"",
-        .{ comptime message_level.asText(), @tagName(scope), service_name },
-    );
-    try std.fmt.format(json_writer, format, args);
-    try writer.writeAll("\"}\n");
-    try bw.flush();
+    nosuspend {
+        try writer.writeAll("{\"@timestamp\":\"");
+        try write_timestamp(plain_datetime_fmt, plain_micros_fmt);
+        try std.fmt.format(
+            writer,
+            "\",\"log.level\":\"{s}\",\"log.logger\":\"{s}\",\"service.name\":\"{s}\",\"message\":\"",
+            .{ comptime message_level.asText(), @tagName(scope), service_name },
+        );
+        try std.fmt.format(json_writer, format, args);
+        try writer.writeAll("\"}\n");
+        try bw.flush();
+    }
 }
