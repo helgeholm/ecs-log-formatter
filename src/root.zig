@@ -115,6 +115,8 @@ fn json_log(
     comptime format: []const u8,
     args: anytype,
 ) !void {
+    std.debug.lockStdErr();
+    defer std.debug.unlockStdErr();
     try writer.writeAll("{\"@timestamp\":\"");
     try write_timestamp(plain_datetime_fmt, plain_micros_fmt);
     try std.fmt.format(
