@@ -7,7 +7,7 @@ When run in a terminal, it outputs logs in human-friendly format. If ANSI colors
 Otherwise, logs are formatted as JSON compatible with [Amazon ECS](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-logging-monitoring.html), for example:
 
 ```json
-{"@timestamp":"2025-01-10T21:01:22.621014Z","log.level":"info","log.logger":"server","service":{"name":"log-demonstration-service"},"message":"Server listening on port 8080"}
+{"@timestamp":"2025-01-10T21:01:22.621014Z","log.level":"INFO","log.logger":"server","service":{"name":"log-demonstration-service"},"message":"Server listening on port 8080"}
 ```
 
 ## Example use
@@ -46,7 +46,7 @@ Running in Kubernetes, or any other scenario where the program's `stderr` is not
 
 ```sh
 $ zig build run |& cat
-{"@timestamp":"2025-01-13T12:17:59.733780Z","log.level":"info","log.logger":"default","service.name":"example-service","message":"Example Service starting up"}
-{"@timestamp":"2025-01-13T12:17:59.733868Z","log.level":"info","log.logger":"server","service.name":"example-service","message":"Listening on port 80"}
-{"@timestamp":"2025-01-13T12:17:59.733877Z","log.level":"error","log.logger":"default","service.name":"example-service","message":"serverNotImplemented"}
+{"@timestamp":"2025-01-13T12:17:59.733780Z","log.level":"INFO","log.logger":"default","service.name":"example-service","message":"Example Service starting up"}
+{"@timestamp":"2025-01-13T12:17:59.733868Z","log.level":"INFO","log.logger":"server","service.name":"example-service","message":"Listening on port 80"}
+{"@timestamp":"2025-01-13T12:17:59.733877Z","log.level":"ERROR","log.logger":"default","service.name":"example-service","message":"serverNotImplemented"}
 ```
