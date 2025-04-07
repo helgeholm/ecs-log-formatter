@@ -76,7 +76,7 @@ fn color_log(
     const message_level_text = E ++ "22;" ++ switch (message_level) {
         .debug => "36mDEBUG",
         .info => "39mINFO",
-        .warn => "33mWARNING",
+        .warn => "33mWARN",
         .err => "1;31mERROR",
     };
     std.debug.lockStdErr();
@@ -104,12 +104,18 @@ fn bw_log(
 ) !void {
     std.debug.lockStdErr();
     defer std.debug.unlockStdErr();
+    const message_level_text = switch (message_level) {
+        .debug => "DEBUG",
+        .info => "INFO",
+        .warn => "WARN",
+        .err => "ERROR",
+    };
     nosuspend {
         try write_timestamp(plain_datetime_fmt, plain_micros_fmt ++ " ");
         if (scope != .default)
-            try std.fmt.format(writer, "{s}({s}): ", .{ comptime message_level.asText(), @tagName(scope) })
+            try std.fmt.format(writer, "{s}({s}): ", .{ message_level_text, @tagName(scope) })
         else
-            try std.fmt.format(writer, "{s}: ", .{comptime message_level.asText()});
+            try std.fmt.format(writer, "{s}: ", .{message_level_text});
         try std.fmt.format(writer, format, args);
         try writer.writeAll("\n");
         try bw.flush();
@@ -125,13 +131,19 @@ fn json_log(
 ) !void {
     std.debug.lockStdErr();
     defer std.debug.unlockStdErr();
+    const message_level_text = switch (message_level) {
+        .debug => "DEBUG",
+        .info => "INFO",
+        .warn => "WARN",
+        .err => "ERROR",
+    };
     nosuspend {
         try writer.writeAll("{\"@timestamp\":\"");
         try write_timestamp(plain_datetime_fmt, plain_micros_fmt);
         try std.fmt.format(
             writer,
             "\",\"log.level\":\"{s}\",\"log.logger\":\"{s}\",\"service.name\":\"{s}\",\"message\":\"",
-            .{ comptime message_level.asText(), @tagName(scope), service_name },
+            .{ message_level_text, @tagName(scope), service_name },
         );
         try std.fmt.format(json_writer, format, args);
         try writer.writeAll("\"}\n");
