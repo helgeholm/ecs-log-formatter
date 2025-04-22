@@ -7,6 +7,9 @@ const writer = bw.writer();
 const plain_datetime_fmt = "%Y-%m-%dT%H:%M:%S";
 const plain_micros_fmt = ".{d:0>6}Z";
 
+// Must be set by client code. Used for service.name field.
+pub var service_name: []const u8 = "";
+
 const json_writer = struct {
     pub const Error = std.fs.File.WriteError || error{ Overflow, InvalidFormat, UnsupportedSpecifier, UnknownSpecifier };
     pub inline fn writeAll(_: @This(), bytes: []const u8) Error!void {
@@ -29,27 +32,23 @@ const json_writer = struct {
 const OutputFormat = enum { tty_bw, tty_color, json };
 var output_format: ?OutputFormat = null;
 
-pub fn AutoLogger(comptime service_name: []const u8) type {
-    return struct {
-        pub fn log(
-            comptime message_level: std.log.Level,
-            comptime scope: @Type(.enum_literal),
-            comptime format: []const u8,
-            args: anytype,
-        ) void {
-            if (output_format == null) {
-                output_format = if (stderr.isTty())
-                    if (stderr.getOrEnableAnsiEscapeSupport()) .tty_color else .tty_bw
-                else
-                    .json;
-            }
-            (switch (output_format.?) {
-                .tty_color => color_log(service_name, message_level, scope, format, args),
-                .tty_bw => bw_log(service_name, message_level, scope, format, args),
-                .json => json_log(service_name, message_level, scope, format, args),
-            }) catch unreachable;
-        }
-    };
+pub fn log(
+    comptime message_level: std.log.Level,
+    comptime scope: @Type(.enum_literal),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    if (output_format == null) {
+        output_format = if (stderr.isTty())
+            if (stderr.getOrEnableAnsiEscapeSupport()) .tty_color else .tty_bw
+        else
+            .json;
+    }
+    (switch (output_format.?) {
+        .tty_color => color_log(message_level, scope, format, args),
+        .tty_bw => bw_log(message_level, scope, format, args),
+        .json => json_log(message_level, scope, format, args),
+    }) catch unreachable;
 }
 
 fn write_timestamp(comptime datetime_fmt: [:0]const u8, comptime micros_fmt: []const u8) !void {
@@ -60,7 +59,6 @@ fn write_timestamp(comptime datetime_fmt: [:0]const u8, comptime micros_fmt: []c
 }
 
 fn color_log(
-    comptime _: []const u8,
     comptime message_level: std.log.Level,
     comptime scope: @Type(.enum_literal),
     comptime format: []const u8,
@@ -96,7 +94,6 @@ fn color_log(
 }
 
 fn bw_log(
-    comptime _: []const u8,
     comptime message_level: std.log.Level,
     comptime scope: @Type(.enum_literal),
     comptime format: []const u8,
@@ -123,7 +120,6 @@ fn bw_log(
 }
 
 fn json_log(
-    comptime service_name: []const u8,
     comptime message_level: std.log.Level,
     comptime scope: @Type(.enum_literal),
     comptime format: []const u8,

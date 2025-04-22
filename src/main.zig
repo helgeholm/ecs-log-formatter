@@ -1,11 +1,12 @@
 const std = @import("std");
-const ael = @import("ecs-log-formatter");
+const ecs = @import("ecs-log-formatter");
 
 pub const std_options: std.Options = std.Options{
-    .logFn = ael.AutoLogger("example-service").log,
+    .logFn = ecs.log,
 };
 
 pub fn main() !void {
+    ecs.service_name = "example-service";
     std.log.info("Example Service starting up", .{});
     try runServer();
 }
