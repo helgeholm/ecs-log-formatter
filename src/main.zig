@@ -14,6 +14,6 @@ pub fn main() !void {
 fn runServer() !void {
     const log = std.log.scoped(.server);
     const port = 80;
-    log.info("Listening on port {d}", .{port});
-    return error.serverNotImplemented;
+    log.info("Yay! exiting {d}", .{port});
+    return;
 }
