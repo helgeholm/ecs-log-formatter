@@ -1,36 +1,24 @@
 const std = @import("std");
+
 const zeit = @import("zeit");
 
-const stderr = std.io.getStdErr();
-var bw = std.io.bufferedWriter(stderr.writer());
-const writer = bw.writer();
 const plain_datetime_fmt = "%Y-%m-%dT%H:%M:%S";
 const plain_micros_fmt = ".{d:0>6}Z";
 
 // Must be set by client code. Used for service.name field.
 pub var service_name: []const u8 = "";
 
-const json_writer = struct {
-    pub const Error = std.fs.File.WriteError || error{ Overflow, InvalidFormat, UnsupportedSpecifier, UnknownSpecifier };
-    pub inline fn writeAll(_: @This(), bytes: []const u8) Error!void {
-        return std.json.encodeJsonStringChars(bytes, .{}, writer);
-    }
-    pub inline fn print(self: @This(), bytes: []const u8, args: anytype) Error!void {
-        return std.fmt.format(self, bytes, args);
-    }
-    pub inline fn writeByte(_: @This(), byte: u8) Error!void {
-        return writer.writeByte(byte);
-    }
-    pub inline fn writeByteNTimes(_: @This(), byte: u8, times: usize) Error!void {
-        return writer.writeByteNTimes(byte, times);
-    }
-    pub inline fn writeBytesNTimes(_: @This(), bytes: []const u8, times: usize) Error!void {
-        return writer.writeBytesNTimes(bytes, times);
-    }
-}{};
-
-const OutputFormat = enum { tty_bw, tty_color, json };
+const OutputFormat = enum {
+    tty_bw,
+    tty_color,
+    json,
+};
 var output_format: ?OutputFormat = null;
+
+var stderr_buffer: [1024]u8 = undefined;
+const stderr = std.fs.File.stderr();
+var stderr_writer = stderr.writer(&stderr_buffer);
+const writer: *std.Io.Writer = &stderr_writer.interface;
 
 pub fn log(
     comptime message_level: std.log.Level,
@@ -44,18 +32,23 @@ pub fn log(
         else
             .json;
     }
-    (switch (output_format.?) {
+
+    (switch (output_format orelse .json) {
         .tty_color => color_log(message_level, scope, format, args),
         .tty_bw => bw_log(message_level, scope, format, args),
         .json => json_log(message_level, scope, format, args),
     }) catch unreachable;
 }
 
-fn write_timestamp(comptime datetime_fmt: [:0]const u8, comptime micros_fmt: []const u8) !void {
+fn write_timestamp(
+    timewriter: *std.Io.Writer,
+    comptime datetime_fmt: [:0]const u8,
+    comptime micros_fmt: []const u8,
+) !void {
     const now = try zeit.instant(.{});
-    try now.time().strftime(writer, datetime_fmt);
+    try now.time().strftime(timewriter, datetime_fmt);
     const usec: u32 = @intCast(@divFloor(@mod(now.timestamp, 1_000_000_000), 1_000));
-    try std.fmt.format(writer, micros_fmt, .{usec});
+    try timewriter.print(micros_fmt, .{usec});
 }
 
 fn color_log(
@@ -77,20 +70,20 @@ fn color_log(
         .warn => "33mWARN",
         .err => "1;31mERROR",
     };
-    std.debug.lockStdErr();
-    defer std.debug.unlockStdErr();
-    nosuspend {
-        try write_timestamp(
-            LOUD_BLUE ++ "%Y-%m-%d" ++ DIM_WHITE ++ "T" ++ BLUE ++ "%H:%M:%S",
-            DIM_WHITE ++ "." ++ DIM_BLUE ++ "{d:0>6}" ++ DIM_WHITE ++ "Z ",
-        );
-        if (scope != .default)
-            try std.fmt.format(writer, "{s}" ++ DIM_WHITE ++ "(" ++ WHITE ++ "{s}" ++ DIM_WHITE ++ "): ", .{ message_level_text, @tagName(scope) })
-        else
-            try std.fmt.format(writer, "{s}" ++ DIM_WHITE ++ ": ", .{message_level_text});
-        try std.fmt.format(writer, RESET ++ format ++ "\n", args);
-        try bw.flush();
-    }
+    try write_timestamp(
+        writer,
+        LOUD_BLUE ++ "%Y-%m-%d" ++ DIM_WHITE ++ "T" ++ BLUE ++ "%H:%M:%S",
+        DIM_WHITE ++ "." ++ DIM_BLUE ++ "{d:0>6}" ++ DIM_WHITE ++ "Z ",
+    );
+    if (scope != .default)
+        try writer.print(
+            "{s}" ++ DIM_WHITE ++ "(" ++ WHITE ++ "{s}" ++ DIM_WHITE ++ "): ",
+            .{ message_level_text, @tagName(scope) },
+        )
+    else
+        try writer.print("{s}" ++ DIM_WHITE ++ ": ", .{message_level_text});
+    try writer.print(RESET ++ format ++ "\n", args);
+    try writer.flush();
 }
 
 fn bw_log(
@@ -99,24 +92,14 @@ fn bw_log(
     comptime format: []const u8,
     args: anytype,
 ) !void {
-    std.debug.lockStdErr();
-    defer std.debug.unlockStdErr();
-    const message_level_text = switch (message_level) {
-        .debug => "DEBUG",
-        .info => "INFO",
-        .warn => "WARN",
-        .err => "ERROR",
-    };
-    nosuspend {
-        try write_timestamp(plain_datetime_fmt, plain_micros_fmt ++ " ");
-        if (scope != .default)
-            try std.fmt.format(writer, "{s}({s}): ", .{ message_level_text, @tagName(scope) })
-        else
-            try std.fmt.format(writer, "{s}: ", .{message_level_text});
-        try std.fmt.format(writer, format, args);
-        try writer.writeAll("\n");
-        try bw.flush();
-    }
+    try write_timestamp(writer, plain_datetime_fmt, plain_micros_fmt ++ " ");
+    if (scope != .default)
+        try writer.print("{s}({s}): ", .{ comptime message_level.asText(), @tagName(scope) })
+    else
+        try writer.print("{s}: ", .{comptime message_level.asText()});
+    try writer.print(format, args);
+    try writer.writeAll("\n");
+    try writer.flush();
 }
 
 fn json_log(
@@ -127,22 +110,31 @@ fn json_log(
 ) !void {
     std.debug.lockStdErr();
     defer std.debug.unlockStdErr();
-    const message_level_text = switch (message_level) {
-        .debug => "DEBUG",
-        .info => "INFO",
-        .warn => "WARN",
-        .err => "ERROR",
-    };
-    nosuspend {
-        try writer.writeAll("{\"@timestamp\":\"");
-        try write_timestamp(plain_datetime_fmt, plain_micros_fmt);
-        try std.fmt.format(
-            writer,
-            "\",\"log.level\":\"{s}\",\"log.logger\":\"{s}\",\"service.name\":\"{s}\",\"message\":\"",
-            .{ message_level_text, @tagName(scope), service_name },
-        );
-        try std.fmt.format(json_writer, format, args);
-        try writer.writeAll("\"}\n");
-        try bw.flush();
-    }
+
+    var buf: [256]u8 = undefined;
+    const message = try std.fmt.bufPrint(&buf, format, args);
+
+    var timebuf: [27]u8 = undefined;
+    var timewriter = std.Io.Writer.fixed(&timebuf);
+    try write_timestamp(
+        &timewriter,
+        plain_datetime_fmt,
+        plain_micros_fmt,
+    );
+
+    var json_writer = std.json.Stringify{ .writer = writer };
+    try json_writer.write(.{
+        .@"@timestamp" = timebuf[0..],
+        .log = .{
+            .level = comptime message_level.asText(),
+            .logger = scope,
+        },
+        .service = .{
+            .name = service_name,
+        },
+        .message = message,
+    });
+    try writer.writeAll("\n");
+
+    try writer.flush();
 }
